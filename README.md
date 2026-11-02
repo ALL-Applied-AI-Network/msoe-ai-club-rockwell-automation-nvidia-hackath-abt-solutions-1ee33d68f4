@@ -1,57 +1,79 @@
-# Rockwell Automation + NVIDIA Innovation Lab · Fall 2026
+# ABT Solutions - FANUC Hackathon Sorting Solution
 
-This is your team's repository for the four-week physical AI hackathon run by Rockwell Automation, NVIDIA, the MSOE AI Club and UWM's Connected Systems Institute. Build everything here. Sponsors can follow your work as it progresses, and your final submission links straight to this repository.
+This minimal starter contains code, instructions, tests and required geometry.
+**No images, videos, saved runs, model weights or virtual environments are in the repository.**
 
-**Full event guide** (datasets, compute, rules, judging, prizes): <https://msoe-maic.com/library/?article=Rockwell-NVIDIA-Fall-2026>
-**Your team workspace** (team, repository access, submissions): <https://dashboard.all-ai-network.org/j/L36HEH>
-**Questions:** [join the hackathon Slack](https://join.slack.com/t/rockwellnvidi-wq82211/shared_invite/zt-4bp05nsn9-UW3afFtM9wjzWtZiQoJBHg) and ask in the channel that matches your question. The event guide's "Getting help" section says who to ping for what.
+Two perception paths exist side by side: the original **Cosmos3-Nano** pipeline
+(`run_sort_pipeline.sh`) and a **Cosmos-free** one that needs no Cosmos weights: OpenCV for the
+cubes (no weights at all) and a small YOLO-OBB detector, trained on synthetic renders, for caps
+and tubes. The detector weights are not in git; download them from the GitHub Release or train
+them (SETUP.md 3a).
 
-## Key dates
-
-| When | What |
-|---|---|
-| Thu Oct 8, 4:00–6:00 PM | Kickoff at Rockwell Automation HQ, 1201 S 2nd St, Milwaukee |
-| **Wed Oct 14, 11:59 PM CT** | **Team plan due:** [submit it here](https://dashboard.all-ai-network.org/s/V28NHK) |
-| **Sun Nov 1, 11:59 PM CT** | **Final submission due:** [submit it here](https://dashboard.all-ai-network.org/s/V28NHK) |
-| Thu Nov 5, 5:00–8:00 PM | Finals at MSOE Diercks Hall: live presentations and prizes |
-
-## First week
-
-- [ ] Everyone on the team has an ALL AI Network account and has joined this team in the [workspace](https://dashboard.all-ai-network.org/j/L36HEH).
-- [ ] Everyone has connected GitHub and accepted the repository invitation (check your GitHub email, or open the workspace and press the check button).
-- [ ] Pick your dataset. We recommend one strong solution around a single dataset.
-- [ ] Download the data and make sure everyone who needs it can open it.
-- [ ] Read the compute guide and decide what you'll need.
-- [ ] Join Slack, open `#hackathon-announcements`, and find your dataset's channel.
-- [ ] Submit the [team plan](https://dashboard.all-ai-network.org/s/V28NHK) by Wednesday, October 14. It's a short resource request, not a graded paper, and any teammate can update it before the deadline.
-
-## The three datasets
-
-1. **[Final Vial Inspection](https://msoe-maic.com/library?article=Rockwell-NVIDIA-Fall-2026-Vial-Inspection):** find missing caps, crooked caps, damaged vials and unexpected empty positions after the robot fills a fixture.
-2. **[Fluid Mixing Station 3](https://msoe-maic.com/library?article=Rockwell-NVIDIA-Fall-2026-Fluid-Mixing):** use synchronized camera views to detect fill and color problems caused by recipes and fluid carryover.
-3. **[Grasping and Sorting](https://msoe-maic.com/library?article=Rockwell-NVIDIA-Fall-2026-Grasping-Sorting):** use a digital twin and multiple cameras to make a standalone FANUC arm grasp and sort objects more reliably.
-
-## Read before your team plan
-
-- **[Compute: Brev, DGX Spark and build.nvidia.com](https://msoe-maic.com/library?article=Rockwell-NVIDIA-Fall-2026-Compute).** Brev credits are spent whenever an instance is running, so stop instances you aren't using.
-- **[Collect and test your own data](https://msoe-maic.com/library?article=Rockwell-NVIDIA-Fall-2026-Data-Collection):** visits, extra data, digital twins, and booking a supervised test on the real equipment.
-- **[Tools and resources](https://msoe-maic.com/library?article=Rockwell-NVIDIA-Fall-2026-Resources):** AI coding tools, vision-language models, NVIDIA Cosmos and more. Start with a simple baseline.
-
-## Final submission (Sun Nov 1)
-
-- A video of about five minutes
-- A one-page project summary
-- A link to this repository
-- References and credits for data, models, code and tools
-
-## Working in this repository
+- People: follow [SETUP.md](SETUP.md).
+- Coding agents: read [AGENTS.md](AGENTS.md), then follow the same setup guide.
+- Physical-system calibration: [docs/CALIBRATION_V05.md](docs/CALIBRATION_V05.md).
+- Geometry/perception assumptions: [docs/MODEL_NOTES.md](docs/MODEL_NOTES.md).
 
 ```bash
-git clone <this repository's URL from the green "Code" button>
+./bootstrap.sh
+# Configure ISAAC, COSMOS and model paths as described in SETUP.md.
+./run_sort_pipeline.sh runs/stack_01          # Cosmos path
+
+# Cosmos-free path (SETUP.md sections 3a-4a):
+./run_opencv_pipeline.sh runs/cubes_01        # cube tower, OpenCV + wrist-camera yaw
+./run_capvial_pipeline.sh runs/capvial_01     # tubes aside, cubes left alone (needs YOLO weights)
+./run_sidesort_pipeline.sh runs/sidesort_01   # tubes -y, cubes +y, caps stay
 ```
 
-- Commit early and push often. Mentors and judges see what's here.
-- **Don't commit large datasets or model weights.** Keep them out with `.gitignore` and note in this README where to download them.
-- Before the finals, replace this README with your project: the problem, your approach, results, how to run it, and credits.
+Bootstrap installs host dependencies, generates procedural material textures
+locally and runs host tests. It does not install Isaac Sim or Cosmos. Detailed
+finger geometry is retained; photo-derived finishes and serial markings are
+replaced by a silver material when the optional photo maps are absent.
 
-**Can't push or see this repository?** Open the [team workspace](https://dashboard.all-ai-network.org/j/L36HEH) and press the GitHub check button. If it still doesn't work, ping Brett Storoe in `#hackathon-general` on Slack.
+## Architecture and entry points
+
+| File | Responsibility |
+| --- | --- |
+| `scene_config.py` | Dimensions, cube positions/rotations, stack order and camera configuration |
+| `cell.py`, `gripper_geometry.py` | USD scene, gripper geometry and contact physics |
+| `perceive.py`, `cube_pose.py` | Cosmos semantics and calibrated image-derived tabletop pose |
+| `plan_sort.py`, `backproject.py`, `plan_grasps.py` | Vision-only planning and image/camera geometry |
+| `sort_scene.py`, `ik.py`, `fk.py` | Physical execution, wrist alignment and success checks |
+| `build_scene.py` | Interactive scene or headless build/render |
+| `run_sort_pipeline.sh` | Capture → perceive → plan → execute → encode (Cosmos) |
+| `perceive_opencv.py`, `wrist_refine.py` | Cosmos-free cube detection, noise normalisation, wrist-camera yaw refinement |
+| `gen_detector_data.py`, `augment_detector_data.py`, `draw_labels.py`, `train_detector.py`, `perceive_yolo.py`, `capvial_detections.py` | Synthetic data, corrupted-copy augmentation, label check, training, inference and detection formatting for the cap/tube YOLO-OBB detector |
+| `eval_detector.py`, `holdout_eval.py`, `perturb_eval.py` | Detector scoring (clean, corrupted, unseen corruptions) and OpenCV cube stress tests; ground truth used for evaluation only |
+| `plan_capvial.py`, `plan_sidesort.py`, `sort_capvial.py`, `capvial_config.py` | Side-slot planning and execution for tubes and cubes (cap/tube and clear-the-centre tasks) |
+| `run_opencv_pipeline.sh`, `run_capvial_pipeline.sh`, `run_sidesort_pipeline.sh`, `run_*_sweep.sh` | Cosmos-free launchers and random-layout sweeps |
+| `capvial_layouts.py`, `with_layout.py`, `summarize_*_sweep.py` | Seeded random layouts, scene patching for a run, sweep summaries |
+| `test_*.py` | Host tests (`bootstrap.sh` runs 69) |
+
+On the Cosmos path, Cosmos identifies cube locations and colours. A calibrated image-geometry
+front end measures yaw; Cosmos receives that measurement and confirms/reports
+the pose. Standalone VLM angle estimation was unreliable. This hybrid system
+uses no simulator ground-truth object poses to command grasps.
+
+The actuator has **6 mm travel per jaw**, giving a **12 mm maximum straight-face
+gap**. Square yaw is equivalent every 90°. Keep these constraints when editing.
+Changes to layout, camera, cube size or contact geometry need a fresh run.
+
+Rebuild this media-free package with `./share.sh --output ../starter.zip`.
+
+## Cosmos-free results and limits
+
+Simulation only, small samples (9 random layouts per sweep, all passed):
+
+| Task | Layouts complete | Placement error |
+| --- | --- | --- |
+| Tubes set aside, cubes left alone | 9/9 | tubes mean 1.6 mm |
+| Clear the centre (tubes -y, cubes +y, caps stay) | 9/9, caps never moved | cubes mean 0.1 mm, tubes mean 2.1 mm |
+
+- Cube yaw is refined by a wrist-camera look before each pick; gates reject a cube rather than force a bad grasp.
+- Detector: the base weights are weak on dark, dim, noisy and JPEG images. The `capvial_n_aug` fine-tune
+  fixes this in detector-only tests, including corruptions it was not trained on, but it has not yet been
+  run through full pipeline sweeps. Bright (1.4x) images were not trained for.
+- The Cosmos-path files were left in working order, with small additions only: `plan_sort.py` (`--image`,
+  source label, top-face yaw agreement gate), `sort_scene.py` (accepts OpenCV detections, optional wrist
+  look, `--no-wrist-look`) and `bootstrap.sh` (more tests). The Cosmos path itself has not been re-run
+  since these edits; only host tests cover it.

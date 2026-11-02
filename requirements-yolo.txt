@@ -1,0 +1,8 @@
+# Cap/vial detector environment (separate from .venv and Isaac's interpreter).
+#   python3 -m venv .venv-yolo && .venv-yolo/bin/pip install -r requirements-yolo.txt
+# Install a torch build that matches your GPU driver first if the default wheel does not
+# (validated: torch 2.15 + cu132, ultralytics 8.4.192).
+torch
+ultralytics>=8.4
+scipy>=1.14
+opencv-python-headless>=4.10
